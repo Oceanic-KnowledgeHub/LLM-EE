@@ -1,0 +1,56 @@
+initial_lr = 0.01
+theta = 0.1
+delta = 0.01
+batch_size_bounds = (2, 10)
+lr_bounds = (0.000001, 0.00005)
+epsilon = 1e-6
+
+batch_size_current = batch_size_bounds[0]
+lr_current = initial_lr
+loss_previous = None
+
+def feedback_function(loss_current, loss_previous):
+    return (loss_current - loss_previous) / max(loss_previous, epsilon)
+
+def adjust_batch_size(loss_current):
+    global batch_size_current
+    feedback = feedback_function(loss_current, loss_previous)
+    batch_size_new = batch_size_current * (1 + theta * feedback)
+    batch_size_new = min(max(batch_size_new, batch_size_bounds[0]), batch_size_bounds[1])
+    batch_size_current = batch_size_new
+    return batch_size_new
+
+def adjust_learning_rate(loss_current):
+    global lr_current
+    loss_change_rate = feedback_function(loss_current, loss_previous)
+    lr_new = initial_lr + (delta * loss_change_rate)
+    lr_new = min(max(lr_new, lr_bounds[0]), lr_bounds[1])
+    lr_current = lr_new
+    return lr_current
+
+def train_epoch(optimizer, model, dataloader, theta, delta, epsilon):
+    global loss_previous, batch_size_current, lr_current
+    loss_current = None  
+    for batch in dataloader:
+        loss = model.train_step(batch)  
+        loss_current = loss.item()  
+
+        loss_change_rate = (loss_current - loss_previous) / max(loss_previous, epsilon)
+
+        adjust_batch_size(loss_current, loss_previous, theta)
+        adjust_learning_rate(loss_current, loss_previous, delta)
+
+        optimizer.zero_grad()
+
+        loss.backward()
+        optimizer.step()
+
+
+        loss_previous = loss_current
+
+    optimizer.lr = lr_current
+
+for epoch in range(num_epochs):
+    train_epoch(optimizer, model, dataloader, theta, delta, epsilon)
+
+trained_model = model
